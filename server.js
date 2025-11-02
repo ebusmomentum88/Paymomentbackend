@@ -9,11 +9,27 @@ const axios = require('axios');
 const { Sequelize, DataTypes } = require('sequelize');
 
 // ==================== CONFIG ====================
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || 'sk_test_1ae7634d7d57171ef43b8ac0087dfa6c72c9633f';
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-const DATABASE_URL = process.env.DATABASE_URL || 'sqlite::memory:';
+const DATABASE_URL = process.env.DATABASE_URL;
 const PORT = process.env.PORT || 5000;
+
+// ==================== VALIDATE ENV ====================
+if (!DATABASE_URL) {
+    console.error('❌ DATABASE_URL not defined. Set it in .env or Render environment variables.');
+    process.exit(1);
+}
+
+if (!JWT_SECRET) {
+    console.error('❌ JWT_SECRET not defined. Set it in .env or Render environment variables.');
+    process.exit(1);
+}
+
+if (!PAYSTACK_SECRET_KEY) {
+    console.error('❌ PAYSTACK_SECRET_KEY not defined. Set it in .env or Render environment variables.');
+    process.exit(1);
+}
 
 // ==================== INIT EXPRESS ====================
 const app = express();
@@ -23,12 +39,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // ==================== DATABASE ====================
 const sequelize = new Sequelize(DATABASE_URL, {
-    dialect: DATABASE_URL.startsWith('postgres') ? 'postgres' : 'sqlite',
+    dialect: 'postgres',
     logging: false
 });
 
 sequelize.authenticate()
-    .then(() => console.log('✅ Database connected'))
+    .then(() => console.log('✅ PostgreSQL connected'))
     .catch(err => {
         console.error('❌ DB Connection Error:', err.message);
         process.exit(1);
@@ -83,7 +99,7 @@ app.get('/', (req, res) => {
     res.json({
         success: true,
         message: 'EbusPay API running',
-        paystack: PAYSTACK_SECRET_KEY ? 'Configured ✅' : 'Not Configured ❌'
+        paystack: 'Configured ✅'
     });
 });
 
