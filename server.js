@@ -56,10 +56,20 @@ app.use('/api/auth', authRoutes);
 // User and Transaction routes (e.g., /api/user/profile, /api/transactions, /api/payments/verify)
 app.use('/api', transactionRoutes); 
 
+// --- ERROR HANDLING MIDDLEWARE (New addition) ---
+// This handles any errors thrown in the routes and returns a clean JSON response
+app.use((err, req, res, next) => {
+    console.error(err.stack); // Log the full error stack to the server console
+    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+    res.status(statusCode).json({
+        message: err.message,
+        // Only expose stack trace in development
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined, 
+    });
+});
+
 // --- SERVER START ---
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, console.log(`Server running on port ${PORT}`));
-
-
 
