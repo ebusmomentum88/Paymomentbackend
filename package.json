@@ -7,6 +7,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "keywords": [
     "backend",
     "paystack",
@@ -28,5 +31,6 @@
     "nodemon": "^3.0.2"
   }
 }
+
 
 
