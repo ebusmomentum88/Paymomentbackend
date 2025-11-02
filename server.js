@@ -1,5 +1,4 @@
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -7,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const { Sequelize, DataTypes } = require('sequelize');
 
+// Load environment variables
 const PORT = process.env.PORT || 5000;
 const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -18,6 +18,7 @@ if (!DATABASE_URL || !JWT_SECRET || !PAYSTACK_SECRET_KEY) {
     process.exit(1);
 }
 
+// Initialize Express
 const app = express();
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
 app.use(express.json());
@@ -25,8 +26,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // -------------------- DATABASE --------------------
 const sequelize = new Sequelize(DATABASE_URL, { dialect: 'postgres', logging: false });
+
 sequelize.authenticate()
-    .then(() => console.log('✅ PostgreSQL connected'))
+    .then(() => console.log('✅ PostgreSQL connected successfully'))
     .catch(err => { console.error('❌ DB Connection Error:', err.message); process.exit(1); });
 
 // -------------------- MODELS --------------------
