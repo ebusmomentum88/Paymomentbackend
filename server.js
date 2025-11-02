@@ -12,7 +12,7 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 5000;
 
 // -------------------- SECRET KEYS --------------------
-const PAYSTACK_SECRET_KEY = 'sk_test_1ae7634d7d57171ef43b8ac0087dfa6c72c9633f'; // Hardcoded for testing
+const PAYSTACK_SECRET_KEY = 'aet245dfeheg7e6uhdbj7565'; // Hardcoded for testing
 const JWT_SECRET = 'supersecretkey';
 
 // --- In-memory user storage ---
@@ -101,6 +101,7 @@ app.get('/api/wallet', authenticate, (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
 
 
 
