@@ -1,142 +1,106 @@
 const express = require('express');
 const cors = require('cors');
-// 1. Paystack Library Initialization
-const Paystack = require('paystack-node'); 
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const axios = require('axios');
+const bodyParser = require('body-parser');
 
 const app = express();
-const PORT = process.env.PORT || 3000; 
+app.use(cors());
+app.use(bodyParser.json());
 
-// --- Configuration ---
-// 🛑 ACTION REQUIRED: Replace the placeholder below with your actual sk_test_... key
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || 'sk_test_1ae7634d7d57171ef43b8ac0087dfa6c72c9633f';
-const paystack = new Paystack(PAYSTACK_SECRET_KEY, process.env.NODE_ENV);
+const PORT = 5000;
 
+// -------------------- SECRET KEYS --------------------
+// Hardcoded secret key (for testing only)
+const PAYSTACK_SECRET_KEY = 'sk_test_1ae7634d7d57171ef43b8ac0087dfa6c72c9633f';
+const JWT_SECRET = 'supersecretkey';
 
-// --- Mock Database (Holds users and transactions in memory) ---
-let users = [];
-let transactions = []; // To keep track of payment references
+// --- In-memory user storage ---
+let users = []; // {id, fullname, email, passwordHash, walletBalance}
 
-// --- Middleware ---
-// Note: '*' in origin allows any domain to access your API (good for testing)
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST'],
-    credentials: true,
-}));
-app.use(express.json());
+// Middleware: JWT Auth
+const authenticate = (req, res, next) => {
+    const token = req.headers['authorization'];
+    if (!token) return res.status(401).json({ message: 'No token provided' });
 
-// --- Utility Functions ---
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) return res.status(401).json({ message: 'Invalid token' });
+        req.user = decoded;
+        next();
+    });
+};
 
-// Simple unique ID generator
-const generateId = () => Math.random().toString(36).substring(2, 9);
-
-
-// --- API Routes ---
-
-// 1. SIGNUP Route
-app.post('/api/signup', (req, res) => {
+// -------------------- SIGNUP --------------------
+app.post('/api/signup', async (req, res) => {
     const { fullname, email, password } = req.body;
+    if (!fullname || !email || !password) return res.status(400).json({ message: 'All fields required' });
 
-    if (!fullname || !email || !password) {
-        return res.status(400).json({ message: 'All fields are required.' });
-    }
-    if (users.some(user => user.email === email)) {
-        return res.status(409).json({ message: 'User already exists.' });
-    }
+    const exists = users.find(u => u.email === email);
+    if (exists) return res.status(409).json({ message: 'Email already exists' });
 
-    const newUser = { id: generateId(), fullname, email, password }; 
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newUser = { id: users.length + 1, fullname, email, passwordHash, walletBalance: 0 };
     users.push(newUser);
-    console.log(`[USER DB]: User signed up: ${email}`);
-    res.status(200).json({ message: 'User created successfully. Please log in.', user: newUser });
+
+    res.json({ message: 'Signup successful. Please login.' });
 });
 
-// 2. LOGIN Route
-app.post('/api/login', (req, res) => {
+// -------------------- LOGIN --------------------
+app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
-
     const user = users.find(u => u.email === email);
+    if (!user) return res.status(401).json({ message: 'Invalid email or password' });
 
-    if (!user || user.password !== password) {
-        return res.status(401).json({ message: 'Invalid email or password.' });
-    }
+    const match = await bcrypt.compare(password, user.passwordHash);
+    if (!match) return res.status(401).json({ message: 'Invalid email or password' });
 
-    console.log(`[USER DB]: User logged in: ${email}`);
-    // Return user data without the password
-    const { password: _, ...userData } = user; 
-    res.status(200).json({ message: 'Login successful.', user: userData });
+    const token = jwt.sign({ id: user.id, email: user.email, fullname: user.fullname }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ user: { id: user.id, fullname: user.fullname, email: user.email }, token });
 });
 
-// 3. PAYSTACK INITIALIZATION Route (Called by frontend)
-app.post('/api/pay', async (req, res) => {
-    const { amount, email } = req.body;
-    
-    if (!amount || !email) {
-         return res.status(400).json({ message: 'Amount and email are required for payment initialization.' });
-    }
-    
-    // Convert Naira (NGN) to kobo (Paystack standard: amount is in the lowest denomination)
-    const amountInKobo = amount * 100;
+// -------------------- INITIALIZE DEPOSIT --------------------
+app.post('/api/pay', authenticate, async (req, res) => {
+    const { amount } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ success: false, message: 'Invalid amount' });
 
-    const transactionReference = `ref-${Date.now()}-${generateId()}`;
+    const reference = new Date().getTime().toString(); // unique reference
+    res.json({ success: true, data: { reference } });
+});
+
+// -------------------- VERIFY PAYMENT --------------------
+app.post('/api/verify-payment', authenticate, async (req, res) => {
+    const { reference } = req.body;
 
     try {
-        // Use Paystack Node SDK to initialize the transaction
-        const response = await paystack.transaction.initialize({
-            email: email,
-            amount: amountInKobo,
-            reference: transactionReference,
-            currency: 'NGN',
-            metadata: {
-                custom_fields: [{
-                    display_name: "User Email",
-                    variable_name: "user_email",
-                    value: email
-                }]
-            }
+        const response = await axios.get(`https://api.paystack.co/transaction/verify/${reference}`, {
+            headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
         });
 
-        if (response.status) {
-            console.log(`[PAYSTACK]: Transaction initialized for ${email}. Ref: ${transactionReference}`);
-            // Store the reference for later verification (or webhooks)
-            transactions.push({ reference: transactionReference, email, amount: amountInKobo, status: 'pending', date: new Date().toISOString() });
-            
-            // Send the initialization data back to the frontend to launch the pop-up
-            return res.json({ success: true, data: response.data });
+        if (response.data.status && response.data.data.status === 'success') {
+            const user = users.find(u => u.email === req.user.email);
+            if (user) user.walletBalance += response.data.data.amount / 100; // Kobo -> Naira
+            return res.json({ success: true, data: { balance: user.walletBalance } });
         } else {
-            console.error('[PAYSTACK ERROR]: Initialization failed:', response.message);
-            return res.status(500).json({ success: false, message: response.message || 'Payment initialization failed.' });
+            return res.status(400).json({ success: false, message: 'Payment not successful' });
         }
-
-    } catch (error) {
-        console.error('[SERVER ERROR]: Error during Paystack initialization:', error);
-        return res.status(500).json({ success: false, message: 'Server error during payment processing.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: 'Payment verification failed' });
     }
 });
 
+// -------------------- GET WALLET BALANCE --------------------
+app.get('/api/wallet', authenticate, (req, res) => {
+    const user = users.find(u => u.email === req.user.email);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-// 4. Verification Route (Placeholder - Usually done via Webhooks in production)
-app.get('/api/verify/:reference', async (req, res) => {
-    // This route would be used to securely check the payment status on the server side
-    const { reference } = req.params;
-    
-    // Simple mock logic:
-    const transaction = transactions.find(t => t.reference === reference);
-    if(transaction) {
-        return res.json({ message: "Verification successful (Mock response).", transaction });
-    }
-    
-    res.status(404).json({ message: "Transaction reference not found." });
+    res.json({ walletBalance: user.walletBalance });
 });
 
-
-// 5. Health Check Route
-app.get('/', (req, res) => {
-    res.status(200).send('EbusPay Backend is running and Paystack is initialized.');
-});
-
-
-// --- Server Start ---
+// -------------------- START SERVER --------------------
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
 
