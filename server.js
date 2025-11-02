@@ -10,7 +10,7 @@ const { Sequelize, DataTypes } = require('sequelize');
 const PORT = process.env.PORT || 5000;
 const DATABASE_URL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const CLIENT_URL = process.env.CLIENT_URL || 'http://ebuspay.vercel.app/';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 
 if (!DATABASE_URL || !JWT_SECRET || !PAYSTACK_SECRET_KEY) {
@@ -161,3 +161,4 @@ app.post('/api/payments/verify', protect, async (req, res) => {
 
 // -------------------- START SERVER --------------------
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
