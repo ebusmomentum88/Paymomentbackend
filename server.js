@@ -6,6 +6,8 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { Sequelize, DataTypes } from "sequelize";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 dotenv.config();
 
@@ -59,7 +61,6 @@ const upload = multer({ storage });
 app.get("/", (req, res) => res.send("✅ EbusPay Backend is running..."));
 
 // Signup
-import bcrypt from "bcryptjs";
 app.post("/api/auth/signup", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -76,7 +77,6 @@ app.post("/api/auth/signup", async (req, res) => {
 });
 
 // Login
-import jwt from "jsonwebtoken";
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -121,11 +121,20 @@ app.post("/api/news", upload.single("image"), async (req, res) => {
   }
 });
 
+// ✅ Updated GET /api/news to return full URLs
 app.get("/api/news", async (req, res) => {
   try {
     const news = await News.findAll({ order: [["createdAt", "DESC"]] });
-    res.json({ success: true, news });
-  } catch {
+    const fullNews = news.map(n => ({
+      id: n.id,
+      title: n.title,
+      content: n.content,
+      imageUrl: n.imageUrl ? `${req.protocol}://${req.get('host')}${n.imageUrl}` : null,
+      createdAt: n.createdAt
+    }));
+    res.json({ success: true, news: fullNews });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Error fetching news" });
   }
 });
