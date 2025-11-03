@@ -1,0 +1,55 @@
+// fix-old-news-images.js
+import { Sequelize, DataTypes } from "sequelize";
+import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
+
+dotenv.config();
+
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: "postgres",
+  dialectOptions: { ssl: { require: true, rejectUnauthorized: false } },
+});
+
+// Define News model
+const News = sequelize.define("News", {
+  title: { type: DataTypes.STRING, allowNull: false },
+  content: { type: DataTypes.TEXT, allowNull: false },
+  imageUrl: DataTypes.STRING,
+});
+
+// Folder where your news images are stored
+const uploadDir = path.join(process.cwd(), "uploads");
+
+async function fixOldNewsImages() {
+  try {
+    await sequelize.authenticate();
+    console.log("Connected to DB");
+
+    const newsList = await News.findAll();
+
+    for (const news of newsList) {
+      if (news.imageUrl) {
+        // Check if file exists
+        const filePath = path.join(process.cwd(), news.imageUrl);
+        if (!fs.existsSync(filePath)) {
+          console.log(`Image missing for news ID ${news.id}. Setting imageUrl to null.`);
+          news.imageUrl = null;
+          await news.save();
+        }
+      } else {
+        // If no imageUrl, optionally assign a default image
+        // news.imageUrl = "/uploads/default.png";
+        // await news.save();
+      }
+    }
+
+    console.log("✅ Old news images fixed or verified!");
+    process.exit(0);
+  } catch (err) {
+    console.error("Error fixing news images:", err);
+    process.exit(1);
+  }
+}
+
+fixOldNewsImages();
