@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 5000;
 
 // CORS
 app.use(cors({
-  origin: ["https://ebuspay.vercel.app", "http://localhost:3000"],
+  origin: ["https://paymoment.vercel.app", "http://localhost:3000"],
   credentials: true
 }));
 
@@ -154,6 +154,7 @@ app.delete("/api/news/:id", async (req, res) => {
 sequelize.sync().then(() => {
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 });
+
 
 
 
