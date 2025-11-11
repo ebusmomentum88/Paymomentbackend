@@ -207,9 +207,37 @@ app.get('/api/user/transactions', authenticateToken, async (req, res) => {
 // ====================== SERVER ======================
 app.get('/', (req, res) => res.send('✅ PayMoment Backend is Live'));
 
+// Bank account resolve endpoint
+app.get('/api/bank/resolve', authenticateToken, async (req, res) => {
+  const { account_number, bank_code } = req.query;
+
+  if (!account_number || !bank_code) {
+    return res.status(400).json({ success: false, message: "Account number and bank code are required" });
+  }
+
+  try {
+    const response = await axios.get(
+      `https://api.paystack.co/bank/resolve?account_number=${account_number}&bank_code=${bank_code}`,
+      {
+        headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
+      }
+    );
+
+    if (response.data.status) {
+      return res.json({ success: true, account_name: response.data.data.account_name });
+    } else {
+      return res.status(400).json({ success: false, message: response.data.message });
+    }
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    return res.status(500).json({ success: false, message: 'Bank resolve failed' });
+  }
+});
+
 app.listen(process.env.PORT || 5000, () =>
   console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
 );
+
 
 
 
