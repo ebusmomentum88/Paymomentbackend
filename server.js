@@ -12,7 +12,7 @@ const app = express();
 // ✅ Allow frontend requests from your live site
 app.use(
   cors({
-    origin: 'https://paybills-eta.vercel.app',
+    origin: 'https://pay-bills-green.vercel.app',
     credentials: true,
   })
 );
@@ -237,6 +237,7 @@ app.get('/api/bank/resolve', authenticateToken, async (req, res) => {
 app.listen(process.env.PORT || 5000, () =>
   console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
 );
+
 
 
 
