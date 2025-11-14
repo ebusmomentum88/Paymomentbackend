@@ -50,7 +50,7 @@ app.post('/api/auth/signup', async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     await pool.query(
       'INSERT INTO users (name, email, phone, password, balance) VALUES ($1, $2, $3, $4, $5)',
-      [name, email, phone, hashed, 5000] // Default balance 5000
+      [name, email, phone, hashed, 5000] // default balance
     );
 
     const newUser = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
@@ -187,6 +187,8 @@ app.get('/', (req, res) => res.send('✅ PayMoment Backend is Live'));
 app.listen(process.env.PORT || 5000, () =>
   console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
 );
+
+
 
 
 
