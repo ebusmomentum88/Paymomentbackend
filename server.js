@@ -10,7 +10,7 @@ const axios = require('axios');
 const app = express();
 
 // ✅ Allow frontend requests
-app.use(cors({ origin: 'https://pay-bills-green.vercel.app/', credentials: true }));
+app.use(cors({ origin: 'https://pay-bills-2.vercel.app/', credentials: true }));
 app.use(bodyParser.json());
 
 // ====================== DATABASE ======================
@@ -184,6 +184,7 @@ app.get('/', (req, res) => res.send('✅ PayMoment Backend is Live'));
 app.listen(process.env.PORT || 5000, () =>
   console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
 );
+
 
 
 
