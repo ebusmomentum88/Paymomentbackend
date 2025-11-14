@@ -9,12 +9,11 @@ const axios = require('axios');
 
 const app = express();
 
-// 🔥 FIXED: Allow frontend properly (no trailing slash)
+// 🔥 Allow frontend properly
 app.use(cors({
   origin: ['https://pay-bills-2.vercel.app', 'https://pay-bills-mxfj.vercel.app'],
   credentials: true
 }));
-
 app.use(bodyParser.json());
 
 // ====================== DATABASE ======================
@@ -42,29 +41,37 @@ const authenticateToken = (req, res, next) => {
 
 // ====================== AUTH ======================
 app.post('/api/auth/signup', async (req, res) => {
-  const { name, email, phone, password } = req.body;
+  let { name, email, phone, password } = req.body;
+  email = email.trim().toLowerCase(); // normalize
+
   try {
+    const existing = await pool.query('SELECT id FROM users WHERE email=$1', [email]);
+    if (existing.rowCount > 0) return res.status(400).json({ message: 'Email already exists' });
+
     const hashed = await bcrypt.hash(password, 10);
+    // 🔥 Start new users with ₦5000
     await pool.query(
       'INSERT INTO users (name, email, phone, password, balance) VALUES ($1, $2, $3, $4, $5)',
-      [name, email, phone, hashed, 0]
+      [name, email, phone, hashed, 5000]
     );
     res.json({ success: true, message: 'Account created successfully' });
   } catch (err) {
     console.error(err);
-    if (err.code === '23505') return res.status(400).json({ message: 'Email already exists' });
     res.status(400).json({ message: 'Error creating user' });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
+  email = email.trim().toLowerCase(); // normalize
   try {
     const result = await pool.query('SELECT * FROM users WHERE email=$1', [email]);
     if (result.rowCount === 0) return res.status(400).json({ message: 'Invalid credentials' });
+
     const user = result.rows[0];
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(400).json({ message: 'Invalid credentials' });
+
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.json({
       success: true,
@@ -116,7 +123,7 @@ app.post('/api/paystack/verify', authenticateToken, async (req, res) => {
   }
 });
 
-// ====================== TRANSACTIONS ======================
+// ====================== SERVICES / PAYMENTS ======================
 app.post('/api/services/pay', authenticateToken, async (req, res) => {
   const { type, description, amount } = req.body;
   try {
